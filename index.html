@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0a1119">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Timesheets">
+<meta name="ts-version" content="1.0">
+<title>Fleet Command Timesheets</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.png">
+<link rel="apple-touch-icon" href="icon.png">
+<style>
+/* Fleet Command timesheets for phones: staff add their own days; admins approve in the desktop app */
+:root{
+  --bg:#070e15; --panel:#111c26; --panel2:#15212c; --line:#2b404e; --fg:#e8f1f4; --muted:#96aebb;
+  --mint:#68e3ac; --amber:#f6c473; --red:#ff7a6b; --mintbg:#173d2f; --amberbg:#43361f; --redbg:#4a2422;
+  --input:#0c1822; --btn:#1f3240; --btnline:#45606f; --primary:#246849; --primaryline:#49c28b;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;-webkit-text-size-adjust:100%}
+body{padding:env(safe-area-inset-top) 0 calc(24px + env(safe-area-inset-bottom))}
+.wrap{max-width:560px;margin:0 auto;padding:16px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:.12em;font-size:13px;line-height:1.15}
+.brand img{width:34px;height:34px;border-radius:8px}
+.brand small{display:block;color:var(--mint);letter-spacing:.24em;font-size:10px;font-weight:700}
+.who{font-size:13px;color:var(--muted);text-align:right}
+.who b{color:var(--fg);display:block;font-size:14px}
+h1{font-size:24px;margin:4px 0 6px}
+h2{font-size:18px;margin:0 0 10px}
+p{margin:0 0 10px}
+.muted{color:var(--muted)}.small{font-size:14px}.tiny{font-size:12px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px}
+label{display:block;font-size:13px;font-weight:650;color:var(--muted);margin:0 0 5px}
+.field{margin-bottom:12px}
+input,select,textarea{width:100%;font:inherit;font-size:16px;color:var(--fg);background:var(--input);border:1px solid var(--line);border-radius:10px;padding:12px;min-height:48px;-webkit-appearance:none;appearance:none}
+select{background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);background-position:calc(100% - 18px) 21px,calc(100% - 13px) 21px;background-size:5px 5px;background-repeat:no-repeat;padding-right:34px}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--primaryline);outline-offset:1px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;font:inherit;font-weight:700;font-size:16px;color:var(--fg);background:var(--btn);border:1px solid var(--btnline);border-radius:10px;padding:12px 16px;min-height:48px;cursor:pointer;text-decoration:none}
+.btn.primary{background:var(--primary);border-color:var(--primaryline)}
+.btn.full{width:100%}
+.btn.sm{min-height:38px;padding:7px 12px;font-size:14px}
+.btn.danger{color:var(--red);background:transparent;border-color:#8a3a31}
+.btn:disabled{opacity:.55}
+.link{background:none;border:0;color:var(--mint);font:inherit;font-size:15px;text-decoration:underline;padding:8px 0;cursor:pointer}
+.seg{display:grid;grid-template-columns:1fr 1fr;gap:6px;background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:4px;margin-bottom:12px}
+.seg button{font:inherit;font-weight:700;font-size:15px;color:var(--muted);background:transparent;border:0;border-radius:9px;min-height:44px;cursor:pointer}
+.seg button.on{background:var(--mintbg);color:var(--mint)}
+.msg{border-radius:10px;padding:10px 12px;margin:0 0 12px;font-size:14px}
+.msg.err{background:var(--redbg);color:#ffd2cc}.msg.ok{background:var(--mintbg);color:#c9f5df}.msg.warn{background:var(--amberbg);color:#ffe6b8}
+.total{display:flex;justify-content:space-between;align-items:baseline;margin:2px 0 12px;font-size:15px}
+.total b{font-size:22px;color:var(--mint)}
+.week{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}
+.week b{font-size:15px;text-align:center}
+.entry{border-top:1px solid var(--line);padding:12px 0}
+.entry:first-of-type{border-top:0}
+.entry .r1{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+.entry .h{font-weight:800;font-size:17px;white-space:nowrap}
+.entry .acts{display:flex;gap:8px;margin-top:8px}
+.pill{display:inline-block;font-size:12px;font-weight:700;border-radius:999px;padding:2px 9px;margin-left:6px}
+.pill.ok{background:var(--mintbg);color:var(--mint)}.pill.wait{background:var(--amberbg);color:var(--amber)}
+.sum{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+.sum div{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+.sum span{display:block;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.sum b{font-size:17px}
+.center{text-align:center}
+.hide{display:none!important}
+.spin{display:inline-block;width:18px;height:18px;border:2px solid var(--muted);border-top-color:transparent;border-radius:50%;animation:s 1s linear infinite;vertical-align:-3px}
+@keyframes s{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"><p class="center muted" style="margin-top:40vh"><span class="spin"></span> Loading…</p></div>
+<script>
+'use strict';
+/* Same company server as the Fleet Command app. The publishable key is public by design; the server's rules decide who can see what. */
+const SB={url:'https://whpbjenhthvhbecnfwny.supabase.co',key:'sb_publishable_x5VO9DSa54gAzlFAb-fy5A_S8-b7H-X'};
+const LS_KEY='fc-timesheets-v1';
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pad=n=>String(n).padStart(2,'0');
+const iso=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const today=()=>iso(new Date());
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+const num=v=>{const n=parseFloat(v);return Number.isFinite(n)?n:0};
+const h2=v=>(Math.round(v*100)/100).toFixed(2);
+const dmy=d=>{const x=new Date(d+'T00:00');return x.toLocaleDateString('en-AU',{weekday:'short',day:'numeric',month:'short'})};
+function weekStart(d){const x=new Date(d+'T00:00');x.setDate(x.getDate()-((x.getDay()+6)%7));return iso(x)}
+function addDays(d,n){const x=new Date(d+'T00:00');x.setDate(x.getDate()+n);return iso(x)}
+
+/* hours: the same rules as the desktop app */
+const mins=t=>{const m=String(t||'').match(/^(\d{1,2}):(\d{2})/);return m?(+m[1])*60+(+m[2]):NaN};
+function shift(e){const a=mins(e.start),b=mins(e.finish);if(!isFinite(a)||!isFinite(b))return 0;let d=b-a;if(d<0)d+=1440;return d/60}
+const isTravel=e=>e.type==='travel';
+const opsH=e=>isTravel(e)?0:shift(e);
+const travH=e=>(isTravel(e)?shift(e):0)+num(e.drive);
+const totH=e=>shift(e)+num(e.drive);
+
+/* ---- saved state on this phone ---- */
+let ST=(()=>{try{return JSON.parse(localStorage.getItem(LS_KEY))||{}}catch(e){return {}}})();
+const saveST=()=>{try{localStorage.setItem(LS_KEY,JSON.stringify(ST))}catch(e){}};
+let UI={view:'',msg:null,week:weekStart(today()),edit:null,busy:false};
+let DATA={rows:[],jobs:[]};
+
+/* ---- company server ---- */
+async function api(path,o={}){const h={apikey:SB.key,'Content-Type':'application/json'};
+  if(o.auth!==false){await fresh();if(!ST.session)throw Object.assign(new Error('Please log in again.'),{status:401});h.Authorization='Bearer '+ST.session.access_token}
+  if(o.prefer)h.Prefer=o.prefer;
+  let r;try{r=await fetch(SB.url+path,{method:o.method||'GET',headers:h,body:o.body!==undefined?JSON.stringify(o.body):undefined})}
+  catch(e){throw new Error('No internet connection. Try again when you have signal.')}
+  const t=await r.text();let j=null;try{j=t?JSON.parse(t):null}catch(e){}
+  if(!r.ok){const m=(j&&(j.error_description||j.msg||j.message||j.error))||('Server error '+r.status);throw Object.assign(new Error(m),{status:r.status})}
+  return j}
+function setSession(s){ST.session={access_token:s.access_token,refresh_token:s.refresh_token,expires_at:s.expires_at||Math.floor(Date.now()/1000)+(s.expires_in||3600),user:s.user||(ST.session&&ST.session.user)};saveST()}
+async function fresh(){const s=ST.session;if(!s)return;if(s.expires_at*1000-60e3>Date.now())return;
+  try{const r=await api('/auth/v1/token?grant_type=refresh_token',{method:'POST',auth:false,body:{refresh_token:s.refresh_token}});setSession(r)}
+  catch(e){if(e.status>=400&&e.status<500){ST.session=null;saveST()}throw e}}
+const me=()=>ST.session&&ST.session.user;
+const myName=()=>{const u=me();return (u&&u.user_metadata&&u.user_metadata.name)||ST.name||(u&&u.email?u.email.split('@')[0]:'')};
+const friendly=m=>/invalid login|invalid credentials/i.test(m)?'That email or password is not right.':/not confirmed|confirm/i.test(m)?'Confirm your email first: open the email we sent you and tap the link, then log in.':/already registered|already exists/i.test(m)?'There is already an account with that email. Log in instead.':/password.*(6|short|weak)/i.test(m)?'Use a password of at least 6 characters.':/rate limit/i.test(m)?'Too many tries. Wait a few minutes and try again.':m;
+
+/* links from emails come back with #access_token=… */
+function readEmailLink(){const h=location.hash.replace(/^#/,'');if(!/access_token=|error_description=/.test(h))return null;const p=new URLSearchParams(h);history.replaceState(null,'',location.pathname+location.search);
+  if(p.get('error_description'))return {err:p.get('error_description')};
+  return {type:p.get('type'),s:{access_token:p.get('access_token'),refresh_token:p.get('refresh_token'),expires_in:+p.get('expires_in')||3600,expires_at:+p.get('expires_at')||0}}}
+
+/* ---- screens ---- */
+function render(){const v=UI.view;const a=$('#app');
+  const msg=UI.msg?`<div class="msg ${UI.msg.k||'err'}">${UI.msg.t}</div>`:'';
+  const top=`<div class="top"><div class="brand"><img src="icon.png" alt=""><div>FLEET<small>TIMESHEETS</small></div></div>${me()&&ST.company?`<div class="who"><b>${esc(myName())}</b>${esc(ST.company.name)}</div>`:''}</div>`;
+  if(v==='login'||v==='signup'||v==='forgot')a.innerHTML=top+authHTML(v,msg);
+  else if(v==='reset')a.innerHTML=top+`<h1>Set a new password</h1>${msg}<div class="card"><form id="fReset"><div class="field"><label for="rPw">New password</label><input id="rPw" type="password" autocomplete="new-password" minlength="6" required></div><button class="btn primary full" ${UI.busy?'disabled':''}>Save password</button></form></div>`;
+  else if(v==='join')a.innerHTML=top+`<h1>Join your company</h1><p class="muted">Type the company code your boss gave you. You only do this once.</p>${msg}<div class="card"><form id="fJoin"><div class="field"><label for="jName">Your name</label><input id="jName" autocomplete="name" value="${esc(myName())}" required></div><div class="field"><label for="jCode">Company code</label><input id="jCode" autocapitalize="characters" autocomplete="off" placeholder="e.g. 7K2QXA" value="${esc(UI.jc||'')}" required style="text-transform:uppercase;letter-spacing:.15em"></div><button class="btn primary full" ${UI.busy?'disabled':''}>Join</button></form></div><p class="center"><button class="link" data-a="logout">Log out</button></p>`;
+  else if(v==='main')a.innerHTML=top+mainHTML(msg);
+  else a.innerHTML=`<p class="center muted" style="margin-top:40vh"><span class="spin"></span> Loading…</p>`;
+  bind()}
+function authHTML(v,msg){
+  if(v==='forgot')return `<h1>Reset your password</h1><p class="muted">We'll email you a link to set a new one.</p>${msg}<div class="card"><form id="fForgot"><div class="field"><label for="fEmail">Email</label><input id="fEmail" type="email" autocomplete="email" inputmode="email" required></div><button class="btn primary full" ${UI.busy?'disabled':''}>Send the link</button></form></div><p class="center"><button class="link" data-a="v-login">Back to log in</button></p>`;
+  const su=v==='signup';
+  return `<h1>${su?'Create your account':'Timesheets'}</h1><p class="muted">${su?'Use your own email. You only do this once.':'Log in to add your hours.'}</p>
+   <div class="seg"><button class="${su?'':'on'}" data-a="v-login">Log in</button><button class="${su?'on':''}" data-a="v-signup">New here</button></div>${msg}
+   <div class="card"><form id="fAuth">${su?`<div class="field"><label for="aName">Your name</label><input id="aName" autocomplete="name" value="${esc(UI.sn||'')}" required></div>`:''}
+    <div class="field"><label for="aEmail">Email</label><input id="aEmail" type="email" autocomplete="email" inputmode="email" value="${esc(ST.email||'')}" required></div>
+    <div class="field"><label for="aPw">Password${su?' (at least 6 characters)':''}</label><input id="aPw" type="password" autocomplete="${su?'new-password':'current-password'}" minlength="6" required></div>
+    <button class="btn primary full" ${UI.busy?'disabled':''}>${UI.busy?'<span class="spin"></span>':su?'Create account':'Log in'}</button></form></div>
+   ${su?'':'<p class="center"><button class="link" data-a="v-forgot">Forgot your password?</button></p>'}`}
+function mainHTML(msg){const e=UI.edit;const f=e||UI._draft||{date:today(),type:'ops',job_id:'',start:'',finish:'',drive:'',notes:''};const tv=isTravel(f);
+  const end=addDays(UI.week,6);const rows=DATA.rows.filter(r=>!r.deleted&&r.date>=UI.week&&r.date<=end).sort((a,b)=>(b.date+(b.start||'')).localeCompare(a.date+(a.start||'')));
+  const t=rows.reduce((s,r)=>({o:s.o+opsH(r),v:s.v+travH(r)}),{o:0,v:0});
+  const jobs=DATA.jobs;
+  const jobOpts=`<option value="">No job</option>${jobs.map(j=>`<option value="${esc(j.id)}" ${j.id===f.job_id?'selected':''}>${esc(j.ref)}${j.title?' · '+esc(j.title):''}</option>`).join('')}${f.job_id&&!jobs.some(j=>j.id===f.job_id)?`<option value="${esc(f.job_id)}" selected>${esc(f.job_ref||'Earlier job')}</option>`:''}`;
+  return `${msg}<div class="card" id="formCard"><h2>${e?'Change this day':'Add my day'}</h2><form id="fDay">
+    <div class="seg"><button type="button" class="${tv?'':'on'}" data-a="type" data-t="ops">Operational day</button><button type="button" class="${tv?'on':''}" data-a="type" data-t="travel">Travel day</button></div>
+    <div class="field"><label for="dDate">Date</label><input id="dDate" type="date" value="${esc(f.date)}" max="${addDays(today(),1)}" required></div>
+    <div class="field"><label for="dJob">Job</label><select id="dJob">${jobOpts}</select></div>
+    <div class="two"><div class="field"><label for="dStart" id="lStart">${tv?'Left':'Start'}</label><input id="dStart" type="time" value="${esc(f.start)}" required></div>
+     <div class="field"><label for="dFinish" id="lFinish">${tv?'Arrived':'Finish'}</label><input id="dFinish" type="time" value="${esc(f.finish)}" required></div></div>
+    <div class="field ${tv?'hide':''}" id="driveF"><label for="dDrive">Hours driving</label><input id="dDrive" type="number" inputmode="decimal" min="0" max="24" step="0.25" value="${esc(f.drive||'')}" placeholder="0"></div>
+    <div class="field"><label for="dNotes">Notes</label><input id="dNotes" value="${esc(f.notes||'')}" placeholder="optional"></div>
+    <div class="total"><span class="muted" id="calcWhat">${tv?'Travel hours':'Hours'}</span><b id="calc">${h2(totH(f))}</b></div>
+    <button class="btn primary full" ${UI.busy?'disabled':''}>${UI.busy?'<span class="spin"></span>':e?'Save changes':'Submit for approval'}</button>
+    ${e?'<div style="display:flex;gap:8px;margin-top:8px"><button type="button" class="btn full" data-a="cancel">Cancel</button><button type="button" class="btn danger full" data-a="del">Remove</button></div>':''}
+   </form></div>
+   <div class="card"><h2>My timesheets</h2>
+    <div class="week"><button class="btn sm" data-a="wk" data-d="-7" aria-label="Previous week">‹ Prev</button><b>Week of ${esc(dmy(UI.week))}</b><button class="btn sm" data-a="wk" data-d="7" aria-label="Next week" ${UI.week>=weekStart(today())?'disabled':''}>Next ›</button></div>
+    <div class="sum"><div><span>Operational</span><b>${h2(t.o)}</b></div><div><span>Travel</span><b>${h2(t.v)}</b></div><div><span>Total</span><b>${h2(t.o+t.v)}</b></div></div>
+    ${rows.length?rows.map(r=>`<div class="entry"><div class="r1"><div><b>${esc(dmy(r.date))}</b>${r.status==='approved'?'<span class="pill ok">Approved</span>':'<span class="pill wait">Waiting</span>'}</div><span class="h">${h2(totH(r))} h</span></div>
+      <div class="small muted">${isTravel(r)?'Travel day':'Operational day'} · ${esc(r.start||'')}–${esc(r.finish||'')}${num(r.drive)&&!isTravel(r)?` · ${h2(num(r.drive))} h driving`:''}${r.job_ref?' · '+esc(r.job_ref):''}</div>
+      ${r.notes?`<div class="small">${esc(r.notes)}</div>`:''}
+      ${r.status==='approved'?`<div class="tiny muted">Approved${r.ap_by?' by '+esc(r.ap_by):''}. Ask your boss if it needs changing.</div>`:`<div class="acts"><button class="btn sm" data-a="edit" data-id="${esc(r.id)}">Change</button></div>`}</div>`).join(''):'<p class="muted small">Nothing for this week yet.</p>'}
+   </div>
+   <p class="center tiny muted">Operational day: start to finish counts as operational hours, and hours driving count as travel hours. Travel day: left to arrived all counts as travel hours.</p>
+   <p class="center"><button class="link" data-a="refresh">Refresh</button> · <button class="link" data-a="logout">Log out</button></p>`}
+
+function bind(){
+  document.querySelectorAll('[data-a]').forEach(b=>b.onclick=ev=>{ev.preventDefault();act(b.dataset.a,b)});
+  const fa=$('#fAuth');if(fa)fa.onsubmit=ev=>{ev.preventDefault();UI.view==='signup'?signUp():logIn()};
+  const ff=$('#fForgot');if(ff)ff.onsubmit=ev=>{ev.preventDefault();forgot()};
+  const fr=$('#fReset');if(fr)fr.onsubmit=ev=>{ev.preventDefault();resetPw()};
+  const fj=$('#fJoin');if(fj)fj.onsubmit=ev=>{ev.preventDefault();join()};
+  const fd=$('#fDay');if(fd){fd.onsubmit=ev=>{ev.preventDefault();saveDay()};['dStart','dFinish','dDrive'].forEach(id=>{const x=$('#'+id);if(x)x.oninput=calc})}}
+function curForm(){const tv=document.querySelector('#fDay .seg .on')?.dataset.t==='travel';return {type:tv?'travel':'ops',date:$('#dDate').value,job_id:$('#dJob').value,start:$('#dStart').value,finish:$('#dFinish').value,drive:tv?0:num($('#dDrive').value),notes:$('#dNotes').value.trim()}}
+function calc(){const f=curForm();$('#calc').textContent=h2(totH(f))}
+
+async function act(a,b){
+  if(a==='v-login'||a==='v-signup'||a==='v-forgot'){UI.view=a.slice(2);UI.msg=null;render();return}
+  if(a==='logout'){ST.session=null;ST.company=null;saveST();DATA={rows:[],jobs:[]};UI={view:'login',msg:null,week:weekStart(today()),edit:null,busy:false};render();return}
+  if(a==='type'){const f=curForm();f.type=b.dataset.t;keepForm(f);return}
+  if(a==='wk'){UI.week=addDays(UI.week,+b.dataset.d);UI.msg=null;render();return}
+  if(a==='edit'){UI.edit={...DATA.rows.find(r=>r.id===b.dataset.id)};UI.msg=null;render();$('#formCard').scrollIntoView({behavior:'smooth'});return}
+  if(a==='cancel'){UI.edit=null;UI.msg=null;render();return}
+  if(a==='del'){if(!b.dataset.armed){b.dataset.armed=1;b.textContent='Tap again to remove';setTimeout(()=>{if(b.isConnected){delete b.dataset.armed;b.textContent='Remove'}},4000);return}removeDay();return}
+  if(a==='refresh'){UI.msg=null;await load();return}}
+function keepForm(f){if(UI.edit)UI.edit={...UI.edit,...f};else UI._draft=f;render()}
+
+async function busy(fn){if(UI.busy)return;UI.busy=true;render();try{await fn()}catch(e){UI.msg={t:esc(friendly(e.message||String(e)))}}finally{UI.busy=false;render()}}
+function logIn(){const email=$('#aEmail').value.trim(),pw=$('#aPw').value;ST.email=email;saveST();
+  busy(async()=>{const r=await api('/auth/v1/token?grant_type=password',{method:'POST',auth:false,body:{email,password:pw}});setSession(r);UI.msg=null;await afterLogin()})}
+function signUp(){const name=$('#aName').value.trim();UI.sn=name;const email=$('#aEmail').value.trim(),pw=$('#aPw').value;ST.email=email;ST.name=name;saveST();
+  busy(async()=>{const back=location.origin+location.pathname;const r=await api('/auth/v1/signup?redirect_to='+encodeURIComponent(back),{method:'POST',auth:false,body:{email,password:pw,data:{name}}});
+    if(r&&r.access_token){setSession(r);UI.msg=null;await afterLogin()}
+    else{UI.view='login';UI.msg={k:'ok',t:`Nearly done. We've emailed <b>${esc(email)}</b>. Open it on this phone and tap the link, then you're in. (Check junk mail if it's not there.)`}}})}
+function forgot(){const email=$('#fEmail').value.trim();ST.email=email;saveST();
+  busy(async()=>{await api('/auth/v1/recover?redirect_to='+encodeURIComponent(location.origin+location.pathname),{method:'POST',auth:false,body:{email}});UI.view='login';UI.msg={k:'ok',t:`If there's an account for <b>${esc(email)}</b>, a reset link is on its way. Open it on this phone.`}})}
+function resetPw(){const pw=$('#rPw').value;busy(async()=>{const u=await api('/auth/v1/user',{method:'PUT',body:{password:pw}});if(u&&u.id)ST.session.user=u;saveST();UI.msg={k:'ok',t:'Password saved.'};await afterLogin(true)})}
+async function afterLogin(keepMsg){if(!keepMsg)UI.msg=null;
+  try{const u=await api('/auth/v1/user');if(u&&u.id){ST.session.user=u;saveST()}}catch(e){}
+  const cos=await api('/rest/v1/rpc/my_companies',{method:'POST',body:{}})||[];
+  if(!cos.length){ST.company=null;saveST();UI.view='join';render();return}
+  const keep=ST.company&&cos.find(c=>c.id===ST.company.id);ST.company=keep||cos[0];saveST();UI.view='main';await load()}
+function join(){const name=$('#jName').value.trim(),code=$('#jCode').value.trim().toUpperCase();UI.jc=code;
+  busy(async()=>{if(!name)throw new Error('Put in your name.');const c=await api('/rest/v1/rpc/join_company',{method:'POST',body:{p_code:code,p_user_name:name}});
+    ST.name=name;ST.company={id:c.id,name:c.name,role:c.role};saveST();
+    try{await api('/auth/v1/user',{method:'PUT',body:{data:{name}}})}catch(e){}
+    UI.view='main';UI.msg={k:'ok',t:`You're in ${esc(c.name)}. Add your first day below.`};await load(true)})}
+async function load(keepMsg){if(!ST.company)return;const cid=ST.company.id,u=me();
+  try{const since=addDays(today(),-120);
+    const [rows,jobs]=await Promise.all([
+      api(`/rest/v1/timesheets?select=*&company_id=eq.${cid}&user_id=eq.${u.id}&date=gte.${since}&order=date.desc`),
+      api(`/rest/v1/jobs?select=id,ref:data->>ref,title:data->>title,status:data->>status,updated_at&company_id=eq.${cid}&deleted=eq.false&order=updated_at.desc&limit=40`).catch(()=>[])]);
+    DATA.rows=rows||[];DATA.jobs=(jobs||[]).filter(j=>j.ref&&!/^DEMO-/i.test(j.ref)&&j.status!=='complete').concat((jobs||[]).filter(j=>j.ref&&!/^DEMO-/i.test(j.ref)&&j.status==='complete').slice(0,5));
+    if(!keepMsg&&UI.msg&&UI.msg.k!=='ok')UI.msg=null}
+  catch(e){if(e.status===401||e.status===403){ST.session=null;saveST();UI.view='login';UI.msg={t:'Please log in again.'}}else UI.msg={t:esc(friendly(e.message))}}
+  render()}
+function saveDay(){const f=curForm();const e=UI.edit;
+  if(!f.date){UI.msg={t:'Pick the date.'};render();return}
+  if(!f.start||!f.finish){UI.msg={t:'Put in the start and finish times.'};render();return}
+  if(f.drive<0||f.drive>24){UI.msg={t:'Hours driving looks wrong.'};render();return}
+  const job=DATA.jobs.find(j=>j.id===f.job_id);const u=me();
+  const body={...f,job_id:f.job_id||null,job_ref:job?job.ref:(e&&e.job_id===f.job_id?e.job_ref:null),name:myName()};
+  busy(async()=>{const cid=ST.company.id;
+    if(e){await api(`/rest/v1/timesheets?company_id=eq.${cid}&id=eq.${encodeURIComponent(e.id)}`,{method:'PATCH',prefer:'return=minimal',body})}
+    else await api('/rest/v1/timesheets',{method:'POST',prefer:'return=minimal',body:{...body,company_id:cid,id:'ph_'+uid(),user_id:u.id,op_id:'u_'+u.id,status:'waiting'}});
+    UI.edit=null;UI._draft=null;UI.week=weekStart(f.date);UI.msg={k:'ok',t:`Sent: ${h2(totH(f))} hours on ${esc(dmy(f.date))}. Your boss approves it in Fleet Command.`};await load(true)})}
+function removeDay(){const e=UI.edit;if(!e)return;busy(async()=>{await api(`/rest/v1/timesheets?company_id=eq.${ST.company.id}&id=eq.${encodeURIComponent(e.id)}`,{method:'PATCH',prefer:'return=minimal',body:{deleted:true}});UI.edit=null;UI.msg={k:'ok',t:'Removed.'};await load(true)})}
+
+/* ---- start ---- */
+(async function start(){
+  const link=readEmailLink();
+  if(link&&link.err){UI.view='login';UI.msg={t:esc(friendly(link.err))+' Try again, or ask for a new link.'};render();return}
+  if(link&&link.s.access_token){setSession(link.s);if(link.type==='recovery'){UI.view='reset';render();return}
+    try{await afterLogin()}catch(e){UI.view='login';UI.msg={t:esc(friendly(e.message))};render()}return}
+  if(!ST.session){UI.view='login';render();return}
+  try{await afterLogin()}catch(e){UI.view=ST.session?'login':'login';UI.msg={t:esc(friendly(e.message))};render()}
+})();
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&UI.view==='main'&&!UI.busy&&!UI.edit)load(true)});
+</script>
+</body>
+</html>
