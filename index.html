@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Timesheets">
-<meta name="ts-version" content="1.0">
+<meta name="ts-version" content="1.1">
 <title>Fleet Command Timesheets</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon.png">
@@ -64,7 +64,8 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--primaryline);out
 .entry .h{font-weight:800;font-size:17px;white-space:nowrap}
 .entry .acts{display:flex;gap:8px;margin-top:8px}
 .pill{display:inline-block;font-size:12px;font-weight:700;border-radius:999px;padding:2px 9px;margin-left:6px}
-.pill.ok{background:var(--mintbg);color:var(--mint)}.pill.wait{background:var(--amberbg);color:var(--amber)}
+.pill.ok{background:var(--mintbg);color:var(--mint)}.pill.wait{background:var(--amberbg);color:var(--amber)}.pill.bad{background:var(--redbg);color:var(--red)}
+.why{background:var(--redbg);color:#ffd2cc;border-radius:8px;padding:6px 10px;font-size:14px;margin-top:6px}
 .sum{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
 .sum div{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
 .sum span{display:block;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
@@ -155,7 +156,8 @@ function mainHTML(msg){const e=UI.edit;const f=e||UI._draft||{date:today(),type:
   const t=rows.reduce((s,r)=>({o:s.o+opsH(r),v:s.v+travH(r)}),{o:0,v:0});
   const jobs=DATA.jobs;
   const jobOpts=`<option value="">No job</option>${jobs.map(j=>`<option value="${esc(j.id)}" ${j.id===f.job_id?'selected':''}>${esc(j.ref)}${j.title?' · '+esc(j.title):''}</option>`).join('')}${f.job_id&&!jobs.some(j=>j.id===f.job_id)?`<option value="${esc(f.job_id)}" selected>${esc(f.job_ref||'Earlier job')}</option>`:''}`;
-  return `${msg}<div class="card" id="formCard"><h2>${e?'Change this day':'Add my day'}</h2><form id="fDay">
+  const back=DATA.rows.filter(r=>!r.deleted&&r.status==='rejected');
+  return `${msg}${back.length&&!e?`<div class="msg err"><b>${back.length} day${back.length===1?' was':'s were'} sent back.</b> ${back.map(r=>`<button class="link" style="color:#ffd2cc;padding:0 4px" data-a="edit" data-id="${esc(r.id)}">${esc(dmy(r.date))}</button>`).join(' ')}</div>`:''}<div class="card" id="formCard"><h2>${e?(e.status==='rejected'?'Fix this day':'Change this day'):'Add my day'}</h2>${e&&e.status==='rejected'?`<div class="why" style="margin:0 0 12px"><b>Sent back:</b> ${esc(e.deny_reason||'Please check this day.')}</div>`:''}<form id="fDay">
     <div class="seg"><button type="button" class="${tv?'':'on'}" data-a="type" data-t="ops">Operational day</button><button type="button" class="${tv?'on':''}" data-a="type" data-t="travel">Travel day</button></div>
     <div class="field"><label for="dDate">Date</label><input id="dDate" type="date" value="${esc(f.date)}" max="${addDays(today(),1)}" required></div>
     <div class="field"><label for="dJob">Job</label><select id="dJob">${jobOpts}</select></div>
@@ -164,16 +166,16 @@ function mainHTML(msg){const e=UI.edit;const f=e||UI._draft||{date:today(),type:
     <div class="field ${tv?'hide':''}" id="driveF"><label for="dDrive">Hours driving</label><input id="dDrive" type="number" inputmode="decimal" min="0" max="24" step="0.25" value="${esc(f.drive||'')}" placeholder="0"></div>
     <div class="field"><label for="dNotes">Notes</label><input id="dNotes" value="${esc(f.notes||'')}" placeholder="optional"></div>
     <div class="total"><span class="muted" id="calcWhat">${tv?'Travel hours':'Hours'}</span><b id="calc">${h2(totH(f))}</b></div>
-    <button class="btn primary full" ${UI.busy?'disabled':''}>${UI.busy?'<span class="spin"></span>':e?'Save changes':'Submit for approval'}</button>
+    <button class="btn primary full" ${UI.busy?'disabled':''}>${UI.busy?'<span class="spin"></span>':e?(e.status==='rejected'?'Resubmit for approval':'Save changes'):'Submit for approval'}</button>
     ${e?'<div style="display:flex;gap:8px;margin-top:8px"><button type="button" class="btn full" data-a="cancel">Cancel</button><button type="button" class="btn danger full" data-a="del">Remove</button></div>':''}
    </form></div>
    <div class="card"><h2>My timesheets</h2>
     <div class="week"><button class="btn sm" data-a="wk" data-d="-7" aria-label="Previous week">‹ Prev</button><b>Week of ${esc(dmy(UI.week))}</b><button class="btn sm" data-a="wk" data-d="7" aria-label="Next week" ${UI.week>=weekStart(today())?'disabled':''}>Next ›</button></div>
     <div class="sum"><div><span>Operational</span><b>${h2(t.o)}</b></div><div><span>Travel</span><b>${h2(t.v)}</b></div><div><span>Total</span><b>${h2(t.o+t.v)}</b></div></div>
-    ${rows.length?rows.map(r=>`<div class="entry"><div class="r1"><div><b>${esc(dmy(r.date))}</b>${r.status==='approved'?'<span class="pill ok">Approved</span>':'<span class="pill wait">Waiting</span>'}</div><span class="h">${h2(totH(r))} h</span></div>
+    ${rows.length?rows.map(r=>`<div class="entry"><div class="r1"><div><b>${esc(dmy(r.date))}</b>${r.status==='approved'?'<span class="pill ok">Approved</span>':r.status==='rejected'?'<span class="pill bad">Sent back</span>':'<span class="pill wait">Waiting</span>'}</div><span class="h">${h2(totH(r))} h</span></div>
       <div class="small muted">${isTravel(r)?'Travel day':'Operational day'} · ${esc(r.start||'')}–${esc(r.finish||'')}${num(r.drive)&&!isTravel(r)?` · ${h2(num(r.drive))} h driving`:''}${r.job_ref?' · '+esc(r.job_ref):''}</div>
-      ${r.notes?`<div class="small">${esc(r.notes)}</div>`:''}
-      ${r.status==='approved'?`<div class="tiny muted">Approved${r.ap_by?' by '+esc(r.ap_by):''}. Ask your boss if it needs changing.</div>`:`<div class="acts"><button class="btn sm" data-a="edit" data-id="${esc(r.id)}">Change</button></div>`}</div>`).join(''):'<p class="muted small">Nothing for this week yet.</p>'}
+      ${r.notes?`<div class="small">${esc(r.notes)}</div>`:''}${r.status==='rejected'?`<div class="why"><b>Sent back${r.deny_by?' by '+esc(r.deny_by):''}:</b> ${esc(r.deny_reason||'Please check this day.')}</div>`:''}
+      ${r.status==='approved'?`<div class="tiny muted">Approved${r.ap_by?' by '+esc(r.ap_by):''}. Ask your boss if it needs changing.</div>`:`<div class="acts"><button class="btn sm ${r.status==='rejected'?'primary':''}" data-a="edit" data-id="${esc(r.id)}">${r.status==='rejected'?'Fix and resubmit':'Change'}</button></div>`}</div>`).join(''):'<p class="muted small">Nothing for this week yet.</p>'}
    </div>
    <p class="center tiny muted">Operational day: start to finish counts as operational hours, and hours driving count as travel hours. Travel day: left to arrived all counts as travel hours.</p>
    <p class="center"><button class="link" data-a="refresh">Refresh</button> · <button class="link" data-a="logout">Log out</button></p>`}
@@ -235,10 +237,10 @@ function saveDay(){const f=curForm();const e=UI.edit;
   const job=DATA.jobs.find(j=>j.id===f.job_id);const u=me();
   const body={...f,job_id:f.job_id||null,job_ref:job?job.ref:(e&&e.job_id===f.job_id?e.job_ref:null),name:myName()};
   busy(async()=>{const cid=ST.company.id;
-    if(e){await api(`/rest/v1/timesheets?company_id=eq.${cid}&id=eq.${encodeURIComponent(e.id)}`,{method:'PATCH',prefer:'return=minimal',body})}
+    if(e){await api(`/rest/v1/timesheets?company_id=eq.${cid}&id=eq.${encodeURIComponent(e.id)}`,{method:'PATCH',prefer:'return=minimal',body:{...body,status:'waiting',deny_reason:null,deny_by:null,deny_at:null}})}
     else await api('/rest/v1/timesheets',{method:'POST',prefer:'return=minimal',body:{...body,company_id:cid,id:'ph_'+uid(),user_id:u.id,op_id:'u_'+u.id,status:'waiting'}});
     UI.edit=null;UI._draft=null;UI.week=weekStart(f.date);UI.msg={k:'ok',t:`Sent: ${h2(totH(f))} hours on ${esc(dmy(f.date))}. Your boss approves it in Fleet Command.`};await load(true)})}
-function removeDay(){const e=UI.edit;if(!e)return;busy(async()=>{await api(`/rest/v1/timesheets?company_id=eq.${ST.company.id}&id=eq.${encodeURIComponent(e.id)}`,{method:'PATCH',prefer:'return=minimal',body:{deleted:true}});UI.edit=null;UI.msg={k:'ok',t:'Removed.'};await load(true)})}
+function removeDay(){const e=UI.edit;if(!e)return;busy(async()=>{await api(`/rest/v1/timesheets?company_id=eq.${ST.company.id}&id=eq.${encodeURIComponent(e.id)}`,{method:'PATCH',prefer:'return=minimal',body:{deleted:true,status:'waiting'}});UI.edit=null;UI.msg={k:'ok',t:'Removed.'};await load(true)})}
 
 /* ---- start ---- */
 (async function start(){
