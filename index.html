@@ -8,9 +8,11 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Timesheets">
-<meta name="ts-version" content="1.1">
+<meta name="ts-version" content="1.2">
 <title>Fleet Command Timesheets</title>
-<link rel="manifest" href="manifest.json">
+<link rel="manifest" href="manifest.json" id="mf">
+<script>/* the admin QR code opens ?team: its home-screen icon keeps opening the team view */
+if(/[?&]team\b/.test(location.search)){document.getElementById('mf').href='manifest-team.json';document.querySelector('meta[name=apple-mobile-web-app-title]').content='Team Hours'}</script>
 <link rel="icon" href="icon.png">
 <link rel="apple-touch-icon" href="icon.png">
 <style>
@@ -71,6 +73,19 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--primaryline);out
 .sum span{display:block;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
 .sum b{font-size:17px}
 .center{text-align:center}
+.person{border-top:1px solid var(--line);padding:11px 0}
+.person:first-of-type{border-top:0}
+.person summary{display:flex;justify-content:space-between;align-items:center;gap:10px;cursor:pointer;list-style:none}
+.person summary::-webkit-details-marker{display:none}
+.person .nm{font-weight:750;font-size:16px}
+.person .h{font-weight:800;font-size:18px;color:var(--mint);white-space:nowrap}
+.person .h.zero{color:var(--muted)}
+.person .days{margin-top:8px;padding:8px 10px;background:var(--panel2);border-radius:10px}
+.person .day{display:flex;justify-content:space-between;gap:8px;font-size:14px;padding:3px 0}
+.pill.adm{background:#1d2f4a;color:#9cc4ff}
+.tabs2{display:grid;grid-template-columns:1fr 1fr;gap:6px;background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:4px;margin-bottom:14px}
+.tabs2 button{font:inherit;font-weight:700;font-size:15px;color:var(--muted);background:transparent;border:0;border-radius:9px;min-height:44px;cursor:pointer}
+.tabs2 button.on{background:var(--mintbg);color:var(--mint)}
 .hide{display:none!important}
 .spin{display:inline-block;width:18px;height:18px;border:2px solid var(--muted);border-top-color:transparent;border-radius:50%;animation:s 1s linear infinite;vertical-align:-3px}
 @keyframes s{to{transform:rotate(360deg)}}
@@ -107,7 +122,10 @@ const totH=e=>shift(e)+num(e.drive);
 let ST=(()=>{try{return JSON.parse(localStorage.getItem(LS_KEY))||{}}catch(e){return {}}})();
 const saveST=()=>{try{localStorage.setItem(LS_KEY,JSON.stringify(ST))}catch(e){}};
 let UI={view:'',msg:null,week:weekStart(today()),edit:null,busy:false};
-let DATA={rows:[],jobs:[]};
+let DATA={rows:[],jobs:[],team:[],members:[]};
+/* admin team view: opened by the admin QR code (?team), remembered on this phone */
+if(/[?&]team\b/.test(location.search)){ST.team=true;saveST()}
+const isAdm=()=>!!(ST.company&&ST.company.role==='admin');
 
 /* ---- company server ---- */
 async function api(path,o={}){const h={apikey:SB.key,'Content-Type':'application/json'};
@@ -138,7 +156,7 @@ function render(){const v=UI.view;const a=$('#app');
   if(v==='login'||v==='signup'||v==='forgot')a.innerHTML=top+authHTML(v,msg);
   else if(v==='reset')a.innerHTML=top+`<h1>Set a new password</h1>${msg}<div class="card"><form id="fReset"><div class="field"><label for="rPw">New password</label><input id="rPw" type="password" autocomplete="new-password" minlength="6" required></div><button class="btn primary full" ${UI.busy?'disabled':''}>Save password</button></form></div>`;
   else if(v==='join')a.innerHTML=top+`<h1>Join your company</h1><p class="muted">Type the company code your boss gave you. You only do this once.</p>${msg}<div class="card"><form id="fJoin"><div class="field"><label for="jName">Your name</label><input id="jName" autocomplete="name" value="${esc(myName())}" required></div><div class="field"><label for="jCode">Company code</label><input id="jCode" autocapitalize="characters" autocomplete="off" placeholder="e.g. 7K2QXA" value="${esc(UI.jc||'')}" required style="text-transform:uppercase;letter-spacing:.15em"></div><button class="btn primary full" ${UI.busy?'disabled':''}>Join</button></form></div><p class="center"><button class="link" data-a="logout">Log out</button></p>`;
-  else if(v==='main')a.innerHTML=top+mainHTML(msg);
+  else if(v==='main')a.innerHTML=top+(isAdm()?`<div class="tabs2"><button class="${ST.team?'':'on'}" data-a="tab" data-t="me">My hours</button><button class="${ST.team?'on':''}" data-a="tab" data-t="team">Team hours</button></div>`:'')+(isAdm()&&ST.team?teamHTML(msg):mainHTML(msg));
   else a.innerHTML=`<p class="center muted" style="margin-top:40vh"><span class="spin"></span> Loading…</p>`;
   bind()}
 function authHTML(v,msg){
@@ -170,7 +188,7 @@ function mainHTML(msg){const e=UI.edit;const f=e||UI._draft||{date:today(),type:
     ${e?'<div style="display:flex;gap:8px;margin-top:8px"><button type="button" class="btn full" data-a="cancel">Cancel</button><button type="button" class="btn danger full" data-a="del">Remove</button></div>':''}
    </form></div>
    <div class="card"><h2>My timesheets</h2>
-    <div class="week"><button class="btn sm" data-a="wk" data-d="-7" aria-label="Previous week">‹ Prev</button><b>Week of ${esc(dmy(UI.week))}</b><button class="btn sm" data-a="wk" data-d="7" aria-label="Next week" ${UI.week>=weekStart(today())?'disabled':''}>Next ›</button></div>
+    ${weekNav()}
     <div class="sum"><div><span>Operational</span><b>${h2(t.o)}</b></div><div><span>Travel</span><b>${h2(t.v)}</b></div><div><span>Total</span><b>${h2(t.o+t.v)}</b></div></div>
     ${rows.length?rows.map(r=>`<div class="entry"><div class="r1"><div><b>${esc(dmy(r.date))}</b>${r.status==='approved'?'<span class="pill ok">Approved</span>':r.status==='rejected'?'<span class="pill bad">Sent back</span>':'<span class="pill wait">Waiting</span>'}</div><span class="h">${h2(totH(r))} h</span></div>
       <div class="small muted">${isTravel(r)?'Travel day':'Operational day'} · ${esc(r.start||'')}–${esc(r.finish||'')}${num(r.drive)&&!isTravel(r)?` · ${h2(num(r.drive))} h driving`:''}${r.job_ref?' · '+esc(r.job_ref):''}</div>
@@ -178,6 +196,31 @@ function mainHTML(msg){const e=UI.edit;const f=e||UI._draft||{date:today(),type:
       ${r.status==='approved'?`<div class="tiny muted">Approved${r.ap_by?' by '+esc(r.ap_by):''}. Ask your boss if it needs changing.</div>`:`<div class="acts"><button class="btn sm ${r.status==='rejected'?'primary':''}" data-a="edit" data-id="${esc(r.id)}">${r.status==='rejected'?'Fix and resubmit':'Change'}</button></div>`}</div>`).join(''):'<p class="muted small">Nothing for this week yet.</p>'}
    </div>
    <p class="center tiny muted">Operational day: start to finish counts as operational hours, and hours driving count as travel hours. Travel day: left to arrived all counts as travel hours.</p>
+   <p class="center"><button class="link" data-a="refresh">Refresh</button> · <button class="link" data-a="logout">Log out</button></p>`}
+
+function weekNav(){return `<div class="week"><button class="btn sm" data-a="wk" data-d="-7" aria-label="Previous week">‹ Prev</button><b>Week of ${esc(dmy(UI.week))}</b><button class="btn sm" data-a="wk" data-d="7" aria-label="Next week" ${UI.week>=weekStart(today())?'disabled':''}>Next ›</button></div>`}
+function teamHTML(msg){const end=addDays(UI.week,6);
+  const rows=DATA.team.filter(r=>!r.deleted&&r.status!=='rejected'&&r.date>=UI.week&&r.date<=end);
+  const back=DATA.team.filter(r=>!r.deleted&&r.status==='rejected'&&r.date>=UI.week&&r.date<=end).length;
+  const P=new Map();
+  DATA.members.forEach(m=>P.set('u_'+m.user_id,{name:m.name||(m.email?m.email.split('@')[0]:'Someone'),admin:m.role==='admin',rows:[]}));
+  const nk=x=>String(x||'').trim().toLowerCase().replace(/\s+/g,' ');
+  rows.forEach(r=>{let k=r.op_id||('u_'+r.user_id);
+    /* hours typed in on the desktop app carry its own staff id: match them to the person by name */
+    if(!P.has(k)&&r.name){const hit=[...P.entries()].find(([,p])=>nk(p.name)===nk(r.name));if(hit)k=hit[0]}
+    if(!P.has(k))P.set(k,{name:r.name||'Someone',admin:false,rows:[]});P.get(k).rows.push(r)});
+  const L=[...P.values()].map(p=>({...p,o:p.rows.reduce((s,r)=>s+opsH(r),0),v:p.rows.reduce((s,r)=>s+travH(r),0),w:p.rows.filter(r=>r.status!=='approved').length}))
+    .sort((a,b)=>(b.o+b.v)-(a.o+a.v)||a.name.localeCompare(b.name));
+  const T=L.reduce((s,p)=>({o:s.o+p.o,v:s.v+p.v}),{o:0,v:0});const W=L.reduce((s,p)=>s+p.w,0);
+  return `${msg}<div class="card"><h2>Team hours</h2>${weekNav()}
+    <div class="sum"><div><span>Operational</span><b>${h2(T.o)}</b></div><div><span>Travel</span><b>${h2(T.v)}</b></div><div><span>Total</span><b>${h2(T.o+T.v)}</b></div></div>
+    ${W?`<div class="msg warn">${W} day${W===1?' is':'s are'} still waiting for approval (counted below). Approve them in Fleet Command.</div>`:''}
+    ${L.length?L.map(p=>{const t=p.o+p.v;const ds=p.rows.slice().sort((a,b)=>a.date.localeCompare(b.date));
+      return `<details class="person"><summary><div><span class="nm">${esc(p.name)}</span>${p.admin?'<span class="pill adm">Admin</span>':''}<div class="tiny muted">${ds.length?`${ds.length} day${ds.length===1?'':'s'} · ${h2(p.o)} ops · ${h2(p.v)} travel${p.w?` · ${p.w} waiting`:''}`:'No hours this week'}</div></div><span class="h ${t?'':'zero'}">${h2(t)} h</span></summary>
+       ${ds.length?`<div class="days">${ds.map(r=>`<div class="day"><span>${esc(dmy(r.date))} · ${isTravel(r)?'Travel':'Ops'}${r.job_ref?' · '+esc(r.job_ref):''}${r.status==='approved'?'':' <span class="pill wait">Waiting</span>'}</span><b>${h2(totH(r))}</b></div>`).join('')}</div>`:''}</details>`}).join(''):'<p class="muted small">Nobody has hours this week.</p>'}
+    ${back?`<p class="tiny muted" style="margin-top:8px">${back} sent-back day${back===1?' is':'s are'} left out until fixed.</p>`:''}
+   </div>
+   <p class="center tiny muted">Everyone in ${esc(ST.company.name)}, admins included. Totals include days waiting for approval. Tap a name to see their days.</p>
    <p class="center"><button class="link" data-a="refresh">Refresh</button> · <button class="link" data-a="logout">Log out</button></p>`}
 
 function bind(){
@@ -192,12 +235,13 @@ function calc(){const f=curForm();$('#calc').textContent=h2(totH(f))}
 
 async function act(a,b){
   if(a==='v-login'||a==='v-signup'||a==='v-forgot'){UI.view=a.slice(2);UI.msg=null;render();return}
-  if(a==='logout'){ST.session=null;ST.company=null;saveST();DATA={rows:[],jobs:[]};UI={view:'login',msg:null,week:weekStart(today()),edit:null,busy:false};render();return}
+  if(a==='logout'){ST.session=null;ST.company=null;saveST();DATA={rows:[],jobs:[],team:[],members:[]};UI={view:'login',msg:null,week:weekStart(today()),edit:null,busy:false};render();return}
   if(a==='type'){const f=curForm();f.type=b.dataset.t;keepForm(f);return}
   if(a==='wk'){UI.week=addDays(UI.week,+b.dataset.d);UI.msg=null;render();return}
   if(a==='edit'){UI.edit={...DATA.rows.find(r=>r.id===b.dataset.id)};UI.msg=null;render();$('#formCard').scrollIntoView({behavior:'smooth'});return}
   if(a==='cancel'){UI.edit=null;UI.msg=null;render();return}
   if(a==='del'){if(!b.dataset.armed){b.dataset.armed=1;b.textContent='Tap again to remove';setTimeout(()=>{if(b.isConnected){delete b.dataset.armed;b.textContent='Remove'}},4000);return}removeDay();return}
+  if(a==='tab'){ST.team=b.dataset.t==='team';saveST();UI.msg=null;UI.edit=null;render();window.scrollTo(0,0);if(ST.team)load(true);return}
   if(a==='refresh'){UI.msg=null;await load();return}}
 function keepForm(f){if(UI.edit)UI.edit={...UI.edit,...f};else UI._draft=f;render()}
 
@@ -226,7 +270,12 @@ async function load(keepMsg){if(!ST.company)return;const cid=ST.company.id,u=me(
     const [rows,jobs]=await Promise.all([
       api(`/rest/v1/timesheets?select=*&company_id=eq.${cid}&user_id=eq.${u.id}&date=gte.${since}&order=date.desc`),
       api(`/rest/v1/jobs?select=id,ref:data->>ref,title:data->>title,status:data->>status,updated_at&company_id=eq.${cid}&deleted=eq.false&order=updated_at.desc&limit=40`).catch(()=>[])]);
-    DATA.rows=rows||[];DATA.jobs=(jobs||[]).filter(j=>j.ref&&!/^DEMO-/i.test(j.ref)&&j.status!=='complete').concat((jobs||[]).filter(j=>j.ref&&!/^DEMO-/i.test(j.ref)&&j.status==='complete').slice(0,5));
+    DATA.rows=rows||[];
+    if(isAdm()){const [all,mem]=await Promise.all([
+        api(`/rest/v1/timesheets?select=id,user_id,op_id,name,date,type,start,finish,drive,status,deleted,job_ref&company_id=eq.${cid}&date=gte.${since}&order=date.desc&limit=5000`).catch(()=>null),
+        api(`/rest/v1/members?select=user_id,name,email,role&company_id=eq.${cid}&active=eq.true`).catch(()=>null)]);
+      if(all)DATA.team=all;if(mem)DATA.members=mem}
+    else{DATA.team=[];DATA.members=[]}DATA.jobs=(jobs||[]).filter(j=>j.ref&&!/^DEMO-/i.test(j.ref)&&j.status!=='complete').concat((jobs||[]).filter(j=>j.ref&&!/^DEMO-/i.test(j.ref)&&j.status==='complete').slice(0,5));
     if(!keepMsg&&UI.msg&&UI.msg.k!=='ok')UI.msg=null}
   catch(e){if(e.status===401||e.status===403){ST.session=null;saveST();UI.view='login';UI.msg={t:'Please log in again.'}}else UI.msg={t:esc(friendly(e.message))}}
   render()}
@@ -239,7 +288,7 @@ function saveDay(){const f=curForm();const e=UI.edit;
   busy(async()=>{const cid=ST.company.id;
     if(e){await api(`/rest/v1/timesheets?company_id=eq.${cid}&id=eq.${encodeURIComponent(e.id)}`,{method:'PATCH',prefer:'return=minimal',body:{...body,status:'waiting',deny_reason:null,deny_by:null,deny_at:null}})}
     else await api('/rest/v1/timesheets',{method:'POST',prefer:'return=minimal',body:{...body,company_id:cid,id:'ph_'+uid(),user_id:u.id,op_id:'u_'+u.id,status:'waiting'}});
-    UI.edit=null;UI._draft=null;UI.week=weekStart(f.date);UI.msg={k:'ok',t:`Sent: ${h2(totH(f))} hours on ${esc(dmy(f.date))}. Your boss approves it in Fleet Command.`};await load(true)})}
+    UI.edit=null;UI._draft=null;UI.week=weekStart(f.date);UI.msg={k:'ok',t:`Sent: ${h2(totH(f))} hours on ${esc(dmy(f.date))}.${isAdm()?' Here are everyone\'s hours for that week.':' Your boss approves it in Fleet Command.'}`};if(isAdm())ST.team=true,saveST();await load(true)})}
 function removeDay(){const e=UI.edit;if(!e)return;busy(async()=>{await api(`/rest/v1/timesheets?company_id=eq.${ST.company.id}&id=eq.${encodeURIComponent(e.id)}`,{method:'PATCH',prefer:'return=minimal',body:{deleted:true,status:'waiting'}});UI.edit=null;UI.msg={k:'ok',t:'Removed.'};await load(true)})}
 
 /* ---- start ---- */
